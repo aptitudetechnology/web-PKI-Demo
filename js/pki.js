@@ -1,4 +1,4 @@
-import { switchTab } from './modules/utils.js';
+// import { switchTab } from './modules/utils.js';
 import { generateKeyPair, saveKeyPair, loadKeyPair, handleKeyFileLoad } from './modules/keyManagement.js';
 import { signMessage, toggleEncryptCustomPublicKey, toggleVerifyCustomPublicKey } from './modules/signVerify.js';
 import { encryptMessage, decryptMessage } from './modules/encryptDecrypt.js';
