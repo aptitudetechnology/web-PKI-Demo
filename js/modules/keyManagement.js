@@ -1,3 +1,5 @@
+import { waitForOpenPGP } from './utils.js';
+
 // Key Management Module
 // Exports: generateKeyPair, saveKeyPair, loadKeyPair, handleKeyFileLoad
 
