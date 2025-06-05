@@ -1,6 +1,5 @@
 import { generateKeyPair, saveKeyPair, loadKeyPair, handleKeyFileLoad } from './modules/keyManagement.js';
-// The following functions are removed or commented out as per the request.
-// import { signMessage, verifyMessage, toggleEncryptCustomPublicKey, toggleVerifyCustomPublicKey } from './modules/signVerify.js';
+import { signMessage, verifyMessage, toggleEncryptCustomPublicKey, toggleVerifyCustomPublicKey } from './modules/signVerify.js';
 
 let keyPair = null; // Will store { publicKey, privateKey }
 
@@ -23,21 +22,19 @@ function waitForOpenPGP() {
     });
 }
 
-// Removed: toggleEncryptCustomPublicKey()
-// function toggleEncryptCustomPublicKey() {
-//     const container = document.getElementById('encryptCustomPublicKeyContainer');
-//     const button = document.getElementById('toggleEncryptPublicKeyBtn');
-//     if (container.style.display === 'none') {
-//         container.style.display = 'block';
-//         button.textContent = 'Use Generated Public Key';
-//     } else {
-//         container.style.display = 'none';
-//         button.textContent = 'Use Custom Public Key';
-//     }
-// }
+// Toggle visibility of the custom public key input for Encrypt Message section
+function toggleEncryptCustomPublicKey() {
+    const container = document.getElementById('encryptCustomPublicKeyContainer');
+    const button = document.getElementById('toggleEncryptPublicKeyBtn');
+    if (container.style.display === 'none') {
+        container.style.display = 'block';
+        button.textContent = 'Use Generated Public Key';
+    } else {
+        container.style.display = 'none';
+        button.textContent = 'Use Custom Public Key';
+    }
+}
 
-// Removed: verifyMessage()
-/*
 async function verifyMessage() {
     const verifyBtn = document.getElementById('verifyBtn');
     const verifyOutput = document.getElementById('verifyOutput');
@@ -170,7 +167,6 @@ async function verifyMessage() {
         verifyBtn.textContent = 'Verify Message';
     }
 }
-*/
 
 function copyToClipboard(text, buttonElement) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -199,8 +195,6 @@ function switchTab(activeTabId, activeContentId) {
     document.getElementById(activeContentId).classList.add('active');
 }
 
-// Removed: toggleVerifyCustomPublicKey()
-/*
 function toggleVerifyCustomPublicKey() {
     const container = document.getElementById('verifyCustomPublicKeyContainer');
     const button = document.getElementById('toggleVerifyPublicKeyBtn');
@@ -212,8 +206,6 @@ function toggleVerifyCustomPublicKey() {
         button.textContent = 'Use Custom Public Key';
     }
 }
-*/
-
 /*
 function saveKeyPair() {
     if (!keyPair) {
@@ -334,8 +326,7 @@ function loadKeyPair() {
     reader.readAsText(file);
     // Clear the input so the same file can be loaded again if needed
     event.target.value = '';
-}
-*/
+}*/
 
 
 function fallbackCopyTextToClipboard(text, buttonElement) {
@@ -447,8 +438,6 @@ function fallbackCopyTextToClipboard(text, buttonElement) {
 }
 */
 
-// Removed: signMessage()
-/*
 async function signMessage() {
     const signBtnNew = document.getElementById('signBtnNew');
     const signOutputNew = document.getElementById('signOutputNew');
@@ -513,7 +502,6 @@ async function signMessage() {
         signBtnNew.textContent = 'Sign Message';
     }
 }
-*/
 
 // Renamed existing encryptMessage to _internalEncryptMessage
 async function _internalEncryptMessage(publicKeyArmored, messageText) {
@@ -676,18 +664,18 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Sign message event listeners (both old and new buttons)
        // document.getElementById('signBtn').addEventListener('click', signMessage);
-       // Removed: document.getElementById('signBtnNew').addEventListener('click', signMessage);
+        document.getElementById('signBtnNew').addEventListener('click', signMessage);
         
         // FIXED: Add the missing verify button event listener
-       // Removed: document.getElementById('verifyBtn').addEventListener('click', verifyMessage);
+        document.getElementById('verifyBtn').addEventListener('click', verifyMessage);
         
         // Encrypt/Decrypt event listeners
         document.getElementById('encryptBtn').addEventListener('click', encryptMessage);
         document.getElementById('decryptBtn').addEventListener('click', decryptMessage);
         
         // Toggle buttons for custom keys
-       // Removed: document.getElementById('toggleEncryptPublicKeyBtn').addEventListener('click', toggleEncryptCustomPublicKey);
-       // Removed: document.getElementById('toggleVerifyPublicKeyBtn').addEventListener('click', toggleVerifyCustomPublicKey);
+        document.getElementById('toggleEncryptPublicKeyBtn').addEventListener('click', toggleEncryptCustomPublicKey);
+        document.getElementById('toggleVerifyPublicKeyBtn').addEventListener('click', toggleVerifyCustomPublicKey);
         
     }).catch(error => {
         console.error("Failed to initialize OpenPGP:", error);
