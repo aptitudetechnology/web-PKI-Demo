@@ -1,13 +1,88 @@
-import { copyToClipboard, waitForOpenPGP } from './utils.js';
+// Key Management Module
+// Exports: generateKeyPair, saveKeyPair, loadKeyPair, handleKeyFileLoad
 
-let keyPair = null; // Will store { publicKey, privateKey }
+export async function generateKeyPair() {
+    const generateBtn = document.getElementById('generateBtn');
+    const keyOutput = document.getElementById('keyOutput');
+    const keyStatus = document.getElementById('keyStatus');
 
-export function getKeyPair() {
-    return keyPair;
-}
+    try {
+        await waitForOpenPGP();
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = '<span class="loading"></span> Generating...';
+        keyStatus.textContent = 'Generating...';
+        keyStatus.className = 'status pending';
 
-export function setKeyPair(newKeyPair) {
-    keyPair = newKeyPair;
+        const name = document.getElementById('userName').value;
+        const email = document.getElementById('userEmail').value;
+        const localPassphrase = document.getElementById('passphrase').value;
+
+        if (!name || !email || !localPassphrase) {
+            throw new Error('Please fill in all fields for key generation');
+        }
+
+        const generatedKeyPair = await openpgp.generateKey({
+            userIDs: [{ name, email }],
+            passphrase: localPassphrase,
+            curve: 'ed25519',
+            format: 'armored'
+        });
+        keyPair = {
+            publicKey: generatedKeyPair.publicKey,
+            privateKey: generatedKeyPair.privateKey
+        };
+
+        keyOutput.style.display = 'block';
+        keyOutput.className = 'output success';
+        keyOutput.innerHTML = `✅ Key pair generated successfully!<br><br>
+                                <strong>Public Key:</strong><pre>${keyPair.publicKey}</pre>
+                                <strong>Private Key:</strong><pre>${keyPair.privateKey}</pre>`;
+
+        keyStatus.textContent = 'Ready';
+        keyStatus.className = 'status ready';
+
+        // Enable all buttons that need keys
+        document.getElementById('signBtn').disabled = false;
+        document.getElementById('signBtnNew').disabled = false; // Fixed: Enable the new sign button
+        document.getElementById('encryptBtn').disabled = false;
+        document.getElementById('decryptBtn').disabled = false;
+        document.getElementById('verifyBtn').disabled = false; // Fixed: Enable verify button
+        document.getElementById('saveKeyBtn').disabled = false;
+        
+        // Update all status indicators
+        ['signVerifyStatus', 'encryptStatus', 'decryptStatus'].forEach(id => {
+            const el = document.getElementById(id);
+            el.textContent = 'Ready';
+            el.className = 'status ready';
+        });
+
+        const existingCopyBtns = keyOutput.querySelectorAll('.copy-btn');
+        existingCopyBtns.forEach(btn => btn.remove());
+
+        const copyPubBtn = document.createElement('button');
+        copyPubBtn.className = 'btn copy-btn';
+        copyPubBtn.textContent = 'Copy Public Key';
+        copyPubBtn.onclick = (event) => copyToClipboard(keyPair.publicKey, event.target);
+        keyOutput.appendChild(copyPubBtn);
+
+        const copyPrivBtn = document.createElement('button');
+        copyPrivBtn.className = 'btn copy-btn';
+        copyPrivBtn.style.marginLeft = '10px';
+        copyPrivBtn.textContent = 'Copy Private Key';
+        copyPrivBtn.onclick = (event) => copyToClipboard(keyPair.privateKey, event.target);
+        keyOutput.appendChild(copyPrivBtn);
+
+    } catch (error) {
+        console.error('Key generation error:', error);
+        keyOutput.style.display = 'block';
+        keyOutput.className = 'output error';
+        keyOutput.textContent = `❌ Key Generation Error: ${error.message || error}`;
+        keyStatus.textContent = 'Error';
+        keyStatus.className = 'status error';
+    } finally {
+        generateBtn.disabled = false;
+        generateBtn.textContent = 'Generate Key Pair';
+    }
 }
 
 export function saveKeyPair() {
@@ -82,11 +157,11 @@ export function handleKeyFileLoad(event) {
             keyStatus.className = 'status ready';
 
             // Enable all buttons that need keys
-            document.getElementById('signBtn').disabled = false;
-            document.getElementById('signBtnNew').disabled = false;
+           document.getElementById('signBtn').disabled = false;
+            document.getElementById('signBtnNew').disabled = false; // Fixed: Enable the new sign button
             document.getElementById('encryptBtn').disabled = false;
             document.getElementById('decryptBtn').disabled = false;
-            document.getElementById('verifyBtn').disabled = false;
+            document.getElementById('verifyBtn').disabled = false; // Fixed: Enable verify button
             document.getElementById('saveKeyBtn').disabled = false;
             
             // Update all status indicators
@@ -125,88 +200,4 @@ export function handleKeyFileLoad(event) {
     reader.readAsText(file);
     // Clear the input so the same file can be loaded again if needed
     event.target.value = '';
-}
-
-export async function generateKeyPair() {
-    const generateBtn = document.getElementById('generateBtn');
-    const keyOutput = document.getElementById('keyOutput');
-    const keyStatus = document.getElementById('keyStatus');
-
-    try {
-        await waitForOpenPGP();
-        generateBtn.disabled = true;
-        generateBtn.innerHTML = '<span class="loading"></span> Generating...';
-        keyStatus.textContent = 'Generating...';
-        keyStatus.className = 'status pending';
-
-        const name = document.getElementById('userName').value;
-        const email = document.getElementById('userEmail').value;
-        const localPassphrase = document.getElementById('passphrase').value;
-
-        if (!name || !email || !localPassphrase) {
-            throw new Error('Please fill in all fields for key generation');
-        }
-
-        const generatedKeyPair = await openpgp.generateKey({
-            userIDs: [{ name, email }],
-            passphrase: localPassphrase,
-            curve: 'ed25519',
-            format: 'armored'
-        });
-        keyPair = {
-            publicKey: generatedKeyPair.publicKey,
-            privateKey: generatedKeyPair.privateKey
-        };
-
-        keyOutput.style.display = 'block';
-        keyOutput.className = 'output success';
-        keyOutput.innerHTML = `✅ Key pair generated successfully!<br><br>
-                                <strong>Public Key:</strong><pre>${keyPair.publicKey}</pre>
-                                <strong>Private Key:</strong><pre>${keyPair.privateKey}</pre>`;
-
-        keyStatus.textContent = 'Ready';
-        keyStatus.className = 'status ready';
-
-        // Enable all buttons that need keys
-        document.getElementById('signBtn').disabled = false;
-        document.getElementById('signBtnNew').disabled = false;
-        document.getElementById('encryptBtn').disabled = false;
-        document.getElementById('decryptBtn').disabled = false;
-        document.getElementById('verifyBtn').disabled = false;
-        document.getElementById('saveKeyBtn').disabled = false;
-        
-        // Update all status indicators
-        ['signVerifyStatus', 'encryptStatus', 'decryptStatus'].forEach(id => {
-            const el = document.getElementById(id);
-            el.textContent = 'Ready';
-            el.className = 'status ready';
-        });
-
-        const existingCopyBtns = keyOutput.querySelectorAll('.copy-btn');
-        existingCopyBtns.forEach(btn => btn.remove());
-
-        const copyPubBtn = document.createElement('button');
-        copyPubBtn.className = 'btn copy-btn';
-        copyPubBtn.textContent = 'Copy Public Key';
-        copyPubBtn.onclick = (event) => copyToClipboard(keyPair.publicKey, event.target);
-        keyOutput.appendChild(copyPubBtn);
-
-        const copyPrivBtn = document.createElement('button');
-        copyPrivBtn.className = 'btn copy-btn';
-        copyPrivBtn.style.marginLeft = '10px';
-        copyPrivBtn.textContent = 'Copy Private Key';
-        copyPrivBtn.onclick = (event) => copyToClipboard(keyPair.privateKey, event.target);
-        keyOutput.appendChild(copyPrivBtn);
-
-    } catch (error) {
-        console.error('Key generation error:', error);
-        keyOutput.style.display = 'block';
-        keyOutput.className = 'output error';
-        keyOutput.textContent = `❌ Key Generation Error: ${error.message || error}`;
-        keyStatus.textContent = 'Error';
-        keyStatus.className = 'status error';
-    } finally {
-        generateBtn.disabled = false;
-        generateBtn.textContent = 'Generate Key Pair';
-    }
 } 
