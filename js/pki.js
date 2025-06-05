@@ -24,19 +24,6 @@ function waitForOpenPGP() {
     });
 }
 
-// Toggle visibility of the custom public key input for Encrypt Message section
-function toggleEncryptCustomPublicKey() {
-    const container = document.getElementById('encryptCustomPublicKeyContainer');
-    const button = document.getElementById('toggleEncryptPublicKeyBtn');
-    if (container.style.display === 'none') {
-        container.style.display = 'block';
-        button.textContent = 'Use Generated Public Key';
-    } else {
-        container.style.display = 'none';
-        button.textContent = 'Use Custom Public Key';
-    }
-}
-
 async function verifyMessage() {
     const verifyBtn = document.getElementById('verifyBtn');
     const verifyOutput = document.getElementById('verifyOutput');
@@ -195,18 +182,6 @@ function switchTab(activeTabId, activeContentId) {
     // Add active class to selected tab and content
     document.getElementById(activeTabId).classList.add('active');
     document.getElementById(activeContentId).classList.add('active');
-}
-
-function toggleVerifyCustomPublicKey() {
-    const container = document.getElementById('verifyCustomPublicKeyContainer');
-    const button = document.getElementById('toggleVerifyPublicKeyBtn');
-    if (container.style.display === 'none') {
-        container.style.display = 'block';
-        button.textContent = 'Use Generated Public Key';
-    } else {
-        container.style.display = 'none';
-        button.textContent = 'Use Custom Public Key';
-    }
 }
 
 function saveKeyPair() {
