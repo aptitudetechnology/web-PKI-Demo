@@ -669,7 +669,9 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('verifyTab').addEventListener('click', () => switchTab('verifyTab', 'verifyMode'));
         
         // Key management event listeners
-        document.getElementById('generateBtn').addEventListener('click', generateKeyPair);
+        document.getElementById('generateBtn').addEventListener('click', async () => {
+            keyPair = await generateKeyPair();
+        });
         document.getElementById('saveKeyBtn').addEventListener('click', saveKeyPair);
         document.getElementById('loadKeyBtn').addEventListener('click', loadKeyPair);
         document.getElementById('keyFileInput').addEventListener('change', handleKeyFileLoad);

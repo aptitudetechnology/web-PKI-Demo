@@ -29,7 +29,7 @@ export async function generateKeyPair() {
             curve: 'ed25519',
             format: 'armored'
         });
-        keyPair = {
+        const keyPair = {
             publicKey: generatedKeyPair.publicKey,
             privateKey: generatedKeyPair.privateKey
         };
@@ -74,6 +74,7 @@ export async function generateKeyPair() {
         copyPrivBtn.onclick = (event) => copyToClipboard(keyPair.privateKey, event.target);
         keyOutput.appendChild(copyPrivBtn);
 
+        return keyPair;
     } catch (error) {
         console.error('Key generation error:', error);
         keyOutput.style.display = 'block';
@@ -81,6 +82,7 @@ export async function generateKeyPair() {
         keyOutput.textContent = `❌ Key Generation Error: ${error.message || error}`;
         keyStatus.textContent = 'Error';
         keyStatus.className = 'status error';
+        throw error;
     } finally {
         generateBtn.disabled = false;
         generateBtn.textContent = 'Generate Key Pair';
