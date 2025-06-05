@@ -1,4 +1,4 @@
-import { waitForOpenPGP, switchTab } from './modules/utils.js';
+import { switchTab } from './modules/utils.js';
 import { generateKeyPair, saveKeyPair, loadKeyPair, handleKeyFileLoad } from './modules/keyManagement.js';
 import { signMessage, verifyMessage, toggleEncryptCustomPublicKey, toggleVerifyCustomPublicKey } from './modules/signVerify.js';
 import { encryptMessage, decryptMessage } from './modules/encryptDecrypt.js';
@@ -641,7 +641,11 @@ async function decryptMessage() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    waitForOpenPGP().then(() => {
+    // Initialize OpenPGP
+    generateKeyPair().catch(error => {
+        console.error("Failed to initialize OpenPGP:", error);
+        alert("Error: Could not load OpenPGP library. Please check the console for details and ensure the CDN link is working.");
+    }).then(() => {
         if (openpgp && openpgp.version) {
             console.log('OpenPGP.js v' + openpgp.version + ' loaded and ready.');
         } else {
@@ -671,9 +675,5 @@ document.addEventListener('DOMContentLoaded', function() {
         // Toggle buttons for custom keys
         document.getElementById('toggleEncryptPublicKeyBtn').addEventListener('click', toggleEncryptCustomPublicKey);
         document.getElementById('toggleVerifyPublicKeyBtn').addEventListener('click', toggleVerifyCustomPublicKey);
-        
-    }).catch(error => {
-        console.error("Failed to initialize OpenPGP:", error);
-        alert("Error: Could not load OpenPGP library. Please check the console for details and ensure the CDN link is working.");
     });
 });

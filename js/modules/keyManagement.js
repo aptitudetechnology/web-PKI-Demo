@@ -1,4 +1,4 @@
-import { copyToClipboard } from './utils.js';
+import { copyToClipboard, waitForOpenPGP } from './utils.js';
 
 let keyPair = null; // Will store { publicKey, privateKey }
 
