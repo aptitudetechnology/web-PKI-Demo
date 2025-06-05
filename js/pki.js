@@ -24,40 +24,7 @@ function waitForOpenPGP() {
     });
 }
 
-async function signMessage() {
-    const signBtnNew = document.getElementById('signBtnNew');
-    const signOutputNew = document.getElementById('signOutputNew');
-    const messageText = document.getElementById('messageToSignNew').value;
 
-    try {
-        signBtnNew.disabled = true;
-        signBtnNew.innerHTML = '<span class="loading"></span> Signing...';
-        signOutputNew.style.display = 'none';
-
-        const localPassphrase = document.getElementById('passphrase').value;
-
-        if (!messageText) throw new Error('Please enter a message to sign');
-        if (!keyPair || !keyPair.privateKey) throw new Error('Private key not available. Generate keys first.');
-        if (!localPassphrase) throw new Error('Passphrase is required to sign');
-
-        const privateKeyArmored = keyPair.privateKey;
-        let privateKeyObj = await openpgp.readPrivateKey({ armoredKey: privateKeyArmored });
-
-        if (!privateKeyObj.isDecrypted()) {
-            privateKeyObj = await openpgp.decryptKey({
-                privateKey: privateKeyObj,
-                passphrase: localPassphrase
-            });
-        }
-
-        const message = await openpgp.createMessage({ text: messageText });
-
-        const signedMessage = await openpgp.sign({
-            message,
-            signingKeys: privateKeyObj,
-            detached: false,
-            format: 'armored'
-        });
 
         signOutputNew.style.display = 'block';
         signOutputNew.className = 'output success';
