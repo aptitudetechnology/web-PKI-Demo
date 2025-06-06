@@ -3,149 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OpenPGP.js web PKI Demo (v6)</title>
+    <title>OpenPGP.js (v6.1.1) web PKI Demo/title>
     <script src="https://cdn.jsdelivr.net/npm/openpgp@6.1.1/dist/openpgp.min.js"></script>
-    <link rel="stylesheet" href="css/style.css">
+ <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔐 OpenPGP.js (v6.1.1) web PKI Demo</h1>
-            <p>Generate keys, sign messages, and encrypt/decrypt data with modern cryptography</p>
+            <h1>🔐 Modular OpenPGP.js Demo</h1>
+            <p>Generate keys, sign messages, and encrypt/decrypt data with modern cryptography.</p>
         </div>
-      <div class="warning-section">
-            <h2>⚠️ Important Security Warning ⚠️</h2>
-            <p>This demo is for **educational and testing purposes ONLY**. We strongly advise against generating or using any **real or sensitive PGP private keys** with this web application.</p>
-            <p>For secure PGP key generation and management, always use **trusted desktop applications** like <a href="https://gnupg.org/" target="_blank" rel="noopener noreferrer">GnuPG (GPG)</a> on your **local system**, ideally while **offline**. Web-based key generation carries inherent risks due to the browser environment and potential for malicious code injection.</p>
-        </div><br>
+
+        <div class="warning-section">
+            <h2>⚠️ Security Warning</h2>
+            <p>This is for educational purposes only. Use trusted desktop applications for real PGP key management.</p>
+        </div>
 
         <div class="card-grid">
-            
+            <!-- Key Management -->
             <div class="card">
                 <h2>
-                    <span class="icon">🔑</span>
-                    Key Generation
+                    🔑 Key Management
                     <span id="keyStatus" class="status pending">No Keys</span>
                 </h2>
+                
                 <div class="form-group">
                     <label for="userName">Name:</label>
-                    <input type="text" id="userName" placeholder="Your Name" >
+                    <input type="text" id="userName" placeholder="Your Name">
                 </div>
+                
                 <div class="form-group">
                     <label for="userEmail">Email:</label>
-                    <input type="email" id="userEmail" placeholder="Your e-mail">
+                    <input type="email" id="userEmail" placeholder="your@email.com">
                 </div>
+                
                 <div class="form-group">
                     <label for="passphrase">Passphrase:</label>
-                    <input type="password" id="passphrase" placeholder="Enter a strong passphrase">
+                    <input type="password" id="passphrase" placeholder="Strong passphrase">
                 </div>
+                
                 <button class="btn" id="generateBtn">Generate Key Pair</button>
-                <div class="key-actions" style="margin-top: 10px;">
-                    <button class="btn" id="saveKeyBtn" disabled>Save Key Pair</button>
-                    <button class="btn" id="loadKeyBtn">Load Key Pair</button>
-                    <input type="file" id="keyFileInput" accept=".json" style="display: none;">
+                
+                <div class="btn-group">
+                    <button class="btn secondary" id="saveBtn" disabled>Save Keys</button>
+                    <button class="btn secondary" id="loadBtn">Load Keys</button>
+                    <input type="file" id="keyFile" accept=".json" style="display: none;">
                 </div>
+                
                 <div id="keyOutput" class="output" style="display: none;"></div>
             </div>
 
-            <div class="card hidden">
+            <!-- Sign & Verify -->
+            <div class="card">
                 <h2>
-                    <span class="icon">✍️</span>
-                    Sign Message
+                    ✍️ Sign & Verify
                     <span id="signStatus" class="status pending">Keys Required</span>
                 </h2>
+                
                 <div class="form-group">
-                    <label for="messageToSign">Message to Sign:</label>
-                    <textarea id="messageToSign" placeholder="Enter your message here...">Hello, this is a test message that will be digitally signed!</textarea>
+                    <label for="signMessage">Message to Sign:</label>
+                    <textarea id="signMessage" placeholder="Message to sign...">Hello, this is a test message!</textarea>
                 </div>
+                
                 <button class="btn" id="signBtn" disabled>Sign Message</button>
-                <div id="signOutput" class="output" style="display: none;"></div>
-            </div>
-          
-          <div class="card">
-                <h2>
-                    <span class="icon">✍️</span>
-                    Sign & Verify Messages
-                    <span id="signVerifyStatus" class="status pending">Keys Required</span>
-                </h2>
+                <button class="btn secondary" id="verifyToggle">Switch to Verify Mode</button>
                 
-                <!-- Tab Navigation -->
-                <div class="tab-nav">
-                    <button class="tab-btn active" id="signTab">Sign Message</button>
-                    <button class="tab-btn" id="verifyTab">Verify Message</button>
-                </div>
-
-                <!-- Sign Mode -->
-                
-<div id="signMode" class="tab-content active">
-    <div class="form-group">
-        <label for="messageToSignNew">Message to Sign:</label>
-        <textarea id="messageToSignNew" placeholder="Enter your message here...">Hello, this is a test message that will be digitally signed!</textarea>
-    </div>
-    <button class="btn" id="signBtnNew" disabled>Sign Message</button>
-    <div id="signOutputNew" class="output" style="display: none;"></div>
-</div>
-
-                <!-- Verify Mode -->
-                <div id="verifyMode" class="tab-content">
+                <div id="verifySection" class="toggle-section">
                     <div class="form-group">
-                        <label for="signedMessageToVerify">Signed Message to Verify:</label>
-                        <textarea id="signedMessageToVerify" placeholder="Paste signed PGP message here..."></textarea>
+                        <label for="verifyMessage">Signed Message to Verify:</label>
+                        <textarea id="verifyMessage" placeholder="Paste signed message..."></textarea>
                     </div>
                     
-                    <button id="toggleVerifyPublicKeyBtn" class="btn">Use Custom Public Key</button>
+                    <button class="btn secondary" id="useCustomKey">Use Custom Public Key</button>
                     
-                    <div class="form-group" id="verifyCustomPublicKeyContainer" style="display:none;">
-                        <label for="verifyCustomPublicKey">Signer's Public Key:</label>
-                        <textarea id="verifyCustomPublicKey" placeholder="Paste signer's public PGP key here..."></textarea>
+                    <div id="customKeySection" class="toggle-section">
+                        <div class="form-group">
+                            <label for="customPublicKey">Signer's Public Key:</label>
+                            <textarea id="customPublicKey" placeholder="Paste public key..."></textarea>
+                        </div>
                     </div>
                     
                     <button class="btn" id="verifyBtn" disabled>Verify Message</button>
-                    <div id="verifyOutput" class="output" style="display: none;"></div>
                 </div>
+                
+                <div id="signOutput" class="output" style="display: none;"></div>
             </div>
 
+            <!-- Encrypt & Decrypt -->
             <div class="card">
                 <h2>
-                    <span class="icon">🔒</span>
-                    Encrypt Message
-                    <span id="encryptStatus" class="status pending">Keys Required</span>
+                    🔒 Encrypt & Decrypt
+                    <span id="cryptStatus" class="status pending">Keys Required</span>
                 </h2>
+                
                 <div class="form-group">
-                    <label for="messageToEncrypt">Message to Encrypt:</label>
-                    <textarea id="messageToEncrypt" placeholder="Enter your secret message...">This is a secret message that will be encrypted!</textarea>
+                    <label for="cryptMessage">Message to Encrypt:</label>
+                    <textarea id="cryptMessage" placeholder="Message to encrypt...">This is a secret message!</textarea>
                 </div>
-
-                <button id="toggleEncryptPublicKeyBtn" class="btn">Use Custom Public Key</button>
-
-                <div class="form-group" id="encryptCustomPublicKeyContainer" style="display:none;">
-                    <label for="encryptCustomPublicKey">Recipient's Public Key:</label>
-                    <textarea id="encryptCustomPublicKey" placeholder="Paste recipient's public PGP key here..."></textarea>
-                </div>
-
+                
                 <button class="btn" id="encryptBtn" disabled>Encrypt Message</button>
-                <div id="encryptOutput" class="output" style="display: none;"></div>
-            </div>
-
-            <div class="card">
-                <h2>
-                    <span class="icon">🔓</span>
-                    Decrypt Message
-                    <span id="decryptStatus" class="status pending">Keys Required</span>
-                </h2>
-                <div class="form-group">
-                    <label for="messageToDecrypt">Encrypted Message to Decrypt:</label>
-                    <textarea id="messageToDecrypt" placeholder="Paste encrypted PGP message here..."></textarea>
+                <button class="btn secondary" id="decryptToggle">Switch to Decrypt Mode</button>
+                
+                <div id="decryptSection" class="toggle-section">
+                    <div class="form-group">
+                        <label for="decryptMessage">Encrypted Message to Decrypt:</label>
+                        <textarea id="decryptMessage" placeholder="Paste encrypted message..."></textarea>
+                    </div>
+                    <button class="btn" id="decryptBtn" disabled>Decrypt Message</button>
                 </div>
-                <button class="btn" id="decryptBtn" disabled>Decrypt Message</button>
-                <div id="decryptOutput" class="output" style="display: none;"></div>
+                
+                <div id="cryptOutput" class="output" style="display: none;"></div>
             </div>
         </div>
-  
-    
-      
     </div>
-
-    <script type="module" src="js/pki.js"></script>
+  <script src="js/pki.js"></script>
 </body>
 </html>
+    
