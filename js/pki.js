@@ -252,7 +252,7 @@ class UIManager {
             }
             
             const originalText = buttonElement.textContent;
-            buttonElement.textContent = '✅ Copied!';
+            buttonElement.textContent = 'âœ… Copied!';
             setTimeout(() => {
                 buttonElement.textContent = originalText;
             }, 2000);
@@ -281,11 +281,11 @@ class UIManager {
     }
 
     static showError(elementId, message) {
-        this.showOutput(elementId, `❌ Error: ${message}`, 'error');
+        this.showOutput(elementId, `âŒ Error: ${message}`, 'error');
     }
 
     static showSuccess(elementId, message) {
-        this.showOutput(elementId, `✅ ${message}`, 'success');
+        this.showOutput(elementId, `âœ… ${message}`, 'success');
     }
 }
 
@@ -428,7 +428,7 @@ class PGPApp {
             const keyPair = await CryptoOps.generateKeyPair(name, email, passphrase);
             this.state.setKeyPair(keyPair);
 
-            const outputContent = `✅ Key pair generated successfully!<br><br>
+            const outputContent = `âœ… Key pair generated successfully!<br><br>
                 <strong>Public Key:</strong><pre>${keyPair.publicKey}</pre>
                 <strong>Private Key:</strong><pre>${keyPair.privateKey}</pre>`;
 
@@ -472,11 +472,11 @@ class PGPApp {
             UIManager.clearValue('passphrase');
             document.getElementById('passphrase').placeholder = 'Enter passphrase for loaded keys';
 
-            const outputContent = `✅ Key pair loaded successfully!<br><br>
+            const outputContent = `âœ… Key pair loaded successfully!<br><br>
                 <strong>Loaded from:</strong> ${file.name}<br>
                 <strong>Timestamp:</strong> ${keyData.timestamp || 'Unknown'}<br>
                 <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; margin: 10px 0; border-radius: 4px;">
-                    <strong>⚠️ Important:</strong> Please enter the correct passphrase for these loaded keys.
+                    <strong>âš ï¸ Important:</strong> Please enter the correct passphrase for these loaded keys.
                 </div>
                 <strong>Public Key:</strong><pre>${keyData.publicKey}</pre>
                 <strong>Private Key:</strong><pre>${keyData.privateKey}</pre>`;
@@ -508,7 +508,7 @@ class PGPApp {
             const keyPair = this.state.getKeyPair();
             const signedMessage = await CryptoOps.signMessage(message, keyPair.privateKey, passphrase);
 
-            const outputContent = `✅ Message signed successfully!<br><br><pre>${signedMessage}</pre>`;
+            const outputContent = `âœ… Message signed successfully!<br><br><pre>${signedMessage}</pre>`;
             UIManager.showOutput('signOutput', outputContent, 'success');
             
             const outputElement = document.getElementById('signOutput');
@@ -517,7 +517,7 @@ class PGPApp {
         } catch (error) {
             let errorMessage = error.message;
             if (error.message.includes('Incorrect key passphrase')) {
-                errorMessage += '\n\n💡 If you loaded keys from a file, make sure you entered the correct passphrase for those keys.';
+                errorMessage += '\n\nðŸ’¡ If you loaded keys from a file, make sure you entered the correct passphrase for those keys.';
             }
             UIManager.showError('signOutput', errorMessage);
         } finally {
@@ -544,8 +544,26 @@ class PGPApp {
 
             const result = await CryptoOps.verifyMessage(signedMessage, publicKey);
 
+          // In your CryptoOps.verifyMessage function, add logging:
+console.log('Signed message being verified:', signedMessage);
+console.log('Public key being used:', publicKeyArmored);
+
+const verificationResult = await openpgp.verify({
+    message: signedMessageObj,
+    verificationKeys: publicKeyObj,
+    format: 'utf8'
+});
+
+console.log('Raw OpenPGP verification result:', verificationResult);
+          
+// LOG THE DETAILS HERE
+        console.log('Verification Result:', result);
+        console.log('isValid:', result.isValid);
+        console.log('verificationDetails:', result.verificationDetails);
+        console.log('originalMessage:', result.originalMessage);          
+          
             if (result.isValid) {
-                const outputContent = `✅ Message verification successful!<br><br>
+                const outputContent = `âœ… Message verification successful!<br><br>
                     <strong>Signature Status:</strong> Valid<br>
                     <strong>Verification Details:</strong> ${result.verificationDetails.length} signature(s) checked, ${result.verificationDetails.filter(d => d.valid).length} valid<br>
                     <strong>Original Message:</strong><pre>${result.originalMessage}</pre>`;
@@ -566,7 +584,7 @@ class PGPApp {
                     });
                 }
                 
-                const outputContent = `❌ Message verification failed!<br><br>
+                const outputContent = `âŒ Message verification failed!<br><br>
                     <strong>Reason:</strong> The signature is invalid, the message has been tampered with, or you're using the wrong public key.${errorDetails}`;
                 UIManager.showOutput('signOutput', outputContent, 'error');
             }
@@ -574,7 +592,7 @@ class PGPApp {
         } catch (error) {
             let errorMessage = `Verification failed: ${error.message}`;
             if (error.message.includes('Error reading')) {
-                errorMessage += '<br><br>💡 Possible issues:<br>• The signed message format is invalid<br>• The public key format is invalid<br>• Copy-paste errors (check for missing characters)';
+                errorMessage += '<br><br>ðŸ’¡ Possible issues:<br>â€¢ The signed message format is invalid<br>â€¢ The public key format is invalid<br>â€¢ Copy-paste errors (check for missing characters)';
             }
             UIManager.showOutput('signOutput', errorMessage, 'error');
         } finally {
@@ -593,7 +611,7 @@ class PGPApp {
             const keyPair = this.state.getKeyPair();
             const encryptedMessage = await CryptoOps.encryptMessage(message, keyPair.publicKey);
 
-            const outputContent = `✅ Message encrypted successfully!<br><br><pre>${encryptedMessage}</pre>`;
+            const outputContent = `âœ… Message encrypted successfully!<br><br><pre>${encryptedMessage}</pre>`;
             UIManager.showOutput('cryptOutput', outputContent, 'success');
             
             const outputElement = document.getElementById('cryptOutput');
@@ -620,7 +638,7 @@ class PGPApp {
             const keyPair = this.state.getKeyPair();
             const decryptedMessage = await CryptoOps.decryptMessage(encryptedMessage, keyPair.privateKey, passphrase);
 
-            const outputContent = `✅ Message decrypted successfully!<br><br>
+            const outputContent = `âœ… Message decrypted successfully!<br><br>
                 <strong>Decrypted Message:</strong><pre>${decryptedMessage}</pre>`;
             UIManager.showOutput('cryptOutput', outputContent, 'success');
             
@@ -630,7 +648,7 @@ class PGPApp {
         } catch (error) {
             let errorMessage = `Decryption failed: ${error.message}`;
             if (error.message.includes('Incorrect key passphrase')) {
-                errorMessage += '\n\n💡 If you loaded keys from a file, ensure you entered the correct passphrase for those loaded keys.';
+                errorMessage += '\n\nðŸ’¡ If you loaded keys from a file, ensure you entered the correct passphrase for those loaded keys.';
             }
             UIManager.showError('cryptOutput', errorMessage);
         } finally {
