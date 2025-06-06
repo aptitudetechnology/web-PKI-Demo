@@ -1,0 +1,198 @@
+/**
+ * COMPONENT STYLES
+ * Reusable UI components including cards, buttons, forms, and status indicators
+ */
+
+/* ===== CARDS ===== */
+.card {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.card h2 {
+    margin-top: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* ===== ICONS & STATUS INDICATORS ===== */
+.icon {
+    font-size: 1.2em;
+}
+
+.status {
+    font-size: 0.8em;
+    padding: 4px 8px;
+    border-radius: 12px;
+    margin-left: auto;
+}
+
+.status.pending {
+    background: #ffeaa7;
+    color: #b8860b;
+}
+
+.status.ready {
+    background: #00b894;
+    color: white;
+}
+
+.status.error {
+    background: #e17055;
+    color: white;
+}
+
+/* ===== BUTTONS ===== */
+.btn {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Button loading state */
+.btn.loading {
+    position: relative;
+    color: transparent;
+}
+
+.btn.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 16px;
+    height: 16px;
+    border: 2px solid transparent;
+    border-top: 2px solid white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* Button variants */
+.btn-secondary {
+    background: #e0e0e0;
+    color: #333;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: #d0d0d0;
+}
+
+.copy-btn {
+    margin-top: 10px;
+    background: #28a745;
+}
+
+.copy-btn:hover:not(:disabled) {
+    background: #218838;
+}
+
+/* Button groups */
+.key-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.key-actions .btn {
+    flex: 1;
+}
+
+/* ===== FORMS ===== */
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.3s;
+    box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+/* Form variations */
+.advanced-options-checkbox {
+    margin: 16px 0;
+}
+
+.advanced-options-checkbox label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.radio-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+}
+
+.radio-option:hover {
+    background: rgba(102, 126, 234, 0.1);
+}
+
+.radio-option input[type="radio"] {
+    width: auto;
+}
+
+.radio-option label {
+    margin: 0;
+    cursor: pointer;
+    flex: 1;
+}
+
+/* ===== HELP TEXT ===== */
+.help-text {
+    font-size: 12px;
+    color: #666;
+    margin-top: 4px;
+}
