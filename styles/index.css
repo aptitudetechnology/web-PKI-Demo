@@ -1,0 +1,25 @@
+/*
+ * index.css
+ * Main stylesheet for the PGP Demo application.
+ * This file imports all other component-specific and utility stylesheets.
+ */
+
+/* Import core layout and typography styles */
+@import url('base.css');
+
+/* Import styles for common UI components like buttons, forms, and cards */
+@import url('components.css');
+
+/* Import styles for modal dialogs */
+@import url('modal.css');
+
+/* Import styles for output displays and information panels */
+@import url('content.css');
+
+/* Import styles for tab navigation */
+@import url('tabs.css');
+
+/*
+ * Add any global styles or overrides here if necessary.
+ * For a modular approach, try to keep this file clean and focus on imports.
+ */
