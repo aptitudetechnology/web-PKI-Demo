@@ -1,4 +1,5 @@
-* {
+
+        * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
@@ -33,6 +34,28 @@
             opacity: 0.9;
         }
 
+        .warning-section {
+            background: #fef2f2;
+            border: 2px solid #ef4444;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 40px;
+            text-align: center;
+            color: #dc2626;
+            box-shadow: 0 10px 30px rgba(252, 165, 165, 0.3);
+        }
+
+        .warning-section h2 {
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+            color: #b91c1c;
+        }
+
+        .warning-section p {
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+
         .card-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
@@ -61,10 +84,6 @@
             font-size: 1.4rem;
         }
 
-        .icon {
-            font-size: 1.5rem;
-        }
-
         .status {
             margin-left: auto;
             padding: 4px 12px;
@@ -86,48 +105,6 @@
         .status.error {
             background: #fecaca;
             color: #dc2626;
-        }
-
-        /* Tab Navigation Styles */
-        .tab-nav {
-            display: flex;
-            margin-bottom: 20px;
-            background: #f8f9fa;
-            border-radius: 12px;
-            padding: 4px;
-        }
-
-        .tab-btn {
-            flex: 1;
-            padding: 12px 20px;
-            border: none;
-            background: transparent;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            color: #6b7280;
-        }
-
-        .tab-btn:hover {
-            background: #e5e7eb;
-            color: #374151;
-        }
-
-        .tab-btn.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-        }
-
-        /* Tab Content Styles */
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
         }
 
         .form-group {
@@ -174,7 +151,11 @@
             cursor: pointer;
             transition: all 0.2s ease;
             width: 100%;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
 
         .btn:hover:not(:disabled) {
@@ -188,12 +169,37 @@
             transform: none;
         }
 
-        .btn.copy-btn {
+        .btn.secondary {
+            background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
             width: auto;
-            margin: 10px 0 0 0;
+            flex: 1;
+        }
+
+        .btn.copy-btn {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            width: auto;
+            margin: 10px 5px 0 0;
             padding: 8px 16px;
             font-size: 0.9rem;
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .toggle-section {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            border: 2px solid #e5e7eb;
+        }
+
+        .toggle-section.active {
+            display: block;
         }
 
         .output {
@@ -205,6 +211,7 @@
             word-break: break-all;
             max-height: 400px;
             overflow-y: auto;
+            margin-top: 20px;
         }
 
         .output.success {
@@ -229,70 +236,6 @@
             animation: spin 1s linear infinite;
         }
 
-/* New Warning Section Styles */
-.warning-section {
-    background: #fef2f2; /* Light red background, similar to error status */
-    border: 2px solid #ef4444; /* A slightly darker red border */
-    border-radius: 20px;
-    padding: 30px;
-    margin-top: 40px; /* Spacing from the cards above */
-    text-align: center;
-    color: #dc2626; /* Dark red text color, consistent with error status */
-    box-shadow: 0 10px 30px rgba(252, 165, 165, 0.3); /* Softer, red-tinted shadow */
-}
-
-.warning-section h2 {
-    font-size: 1.8rem;
-    margin-bottom: 15px;
-    color: #b91c1c; /* Even darker red for the heading */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-}
-
-.warning-section p {
-    font-size: 1.1rem;
-    line-height: 1.6;
-    margin-bottom: 15px;
-}
-
-.warning-section p:last-of-type {
-    margin-bottom: 0; /* Remove bottom margin for the last paragraph */
-}
-
-.warning-section a {
-    color: #764ba2; /* Use your main gradient's end color for links */
-    text-decoration: underline;
-    font-weight: 600;
-    transition: color 0.2s ease;
-}
-
-.warning-section a:hover {
-    color: #667eea; /* Use your main gradient's start color on hover */
-}
-
-/* Media query for smaller screens */
-@media (max-width: 768px) {
-    .warning-section {
-        padding: 20px;
-        margin-top: 30px;
-    }
-
-    .warning-section h2 {
-        font-size: 1.5rem;
-    }
-
-    .warning-section p {
-        font-size: 1rem;
-    }
-}
-
-
-    .hidden {
-      display: none !important;
-      }
-
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -311,11 +254,12 @@
                 padding: 20px;
             }
 
-            .tab-nav {
+            .btn-group {
                 flex-direction: column;
             }
 
-            .tab-btn {
-                margin-bottom: 4px;
+            .btn.secondary {
+                width: 100%;
             }
         }
+    
