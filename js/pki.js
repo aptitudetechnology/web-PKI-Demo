@@ -1,709 +1,587 @@
-// ====================
-// MODULAR ARCHITECTURE
-// ====================
+ 
+        // Global state management
+        const AppState = {
+            currentKeyPair: null,
+            isGenerating: false,
+            advancedConfig: {
+                algorithm: 'ecc',
+                keySize: null,
+                expiration: 63072000, // 2 years in seconds
+                usage: {
+                    sign: true,
+                    encrypt: true,
+                    certify: true
+                },
+                comment: ''
+            }
+        };
 
-// 1. STATE MANAGEMENT
-class AppState {
-    constructor() {
-        this.keyPair = null;
-        this.isReady = false;
-        this.listeners = {};
-    }
+        // Utility functions
+        const Utils = {
+            // Validate required form fields
+            validateRequiredFields() {
+                const name = document.getElementById('userName').value.trim();
+                const email = document.getElementById('userEmail').value.trim();
+                const passphrase = document.getElementById('passphrase').value;
 
-    setKeyPair(keyPair) {
-        this.keyPair = keyPair;
-        this.isReady = !!keyPair;
-        this.notify('keysChanged', { keyPair, isReady: this.isReady });
-    }
+                if (!name) {
+                    throw new Error('Name is required');
+                }
+                if (!email) {
+                    throw new Error('Email is required');
+                }
+                if (!this.isValidEmail(email)) {
+                    throw new Error('Please enter a valid email address');
+                }
+                if (!passphrase) {
+                    throw new Error('Passphrase is required');
+                }
+                if (passphrase.length < 8) {
+                    throw new Error('Passphrase must be at least 8 characters long');
+                }
 
-    getKeyPair() {
-        return this.keyPair;
-    }
+                return { name, email, passphrase };
+            },
 
-    isKeysReady() {
-        return this.isReady;
-    }
+            // Email validation
+            isValidEmail(email) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                return emailRegex.test(email);
+            },
 
-    // Simple event system for state changes
-    on(event, callback) {
-        if (!this.listeners[event]) {
-            this.listeners[event] = [];
-        }
-        this.listeners[event].push(callback);
-    }
+            // Format fingerprint with spaces
+            formatFingerprint(fingerprint) {
+                return fingerprint.replace(/(.{4})/g, '$1 ').trim().toUpperCase();
+            },
 
-    notify(event, data) {
-        if (this.listeners[event]) {
-            this.listeners[event].forEach(callback => callback(data));
-        }
-    }
-}
+            // Format date
+            formatDate(date) {
+                return new Date(date).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            },
 
-// 2. CRYPTO OPERATIONS (Pure functions)
-class CryptoOps {
-    static async waitForOpenPGP() {
-        return new Promise((resolve, reject) => {
-            let attempts = 0;
-            const maxAttempts = 50;
-            function check() {
-                attempts++;
-                if (typeof openpgp !== 'undefined') {
-                    resolve();
-                } else if (attempts >= maxAttempts) {
-                    reject(new Error('OpenPGP library failed to load'));
+            // Show loading state on button
+            setButtonLoading(button, isLoading, originalText = null) {
+                if (isLoading) {
+                    button.dataset.originalText = button.textContent;
+                    button.textContent = 'Generating...';
+                    button.classList.add('loading');
+                    button.disabled = true;
                 } else {
-                    setTimeout(check, 100);
+                    button.textContent = originalText || button.dataset.originalText || 'Generate Key Pair';
+                    button.classList.remove('loading');
+                    button.disabled = false;
                 }
-            }
-            check();
-        });
-    }
+            },
 
-    static async generateKeyPair(name, email, passphrase) {
-        const keyPair = await openpgp.generateKey({
-            userIDs: [{ name, email }],
-            passphrase,
-            curve: 'ed25519',
-            format: 'armored'
-        });
-        return {
-            publicKey: keyPair.publicKey,
-            privateKey: keyPair.privateKey
-        };
-    }
+            // Update status indicator
+            updateStatus(status, text) {
+                const statusEl = document.getElementById('keyStatus');
+                statusEl.className = `status ${status}`;
+                statusEl.textContent = text;
+            },
 
-    static async signMessage(message, privateKeyArmored, passphrase) {
-        let privateKeyObj = await openpgp.readPrivateKey({ armoredKey: privateKeyArmored });
-        
-        if (!privateKeyObj.isDecrypted()) {
-            privateKeyObj = await openpgp.decryptKey({
-                privateKey: privateKeyObj,
-                passphrase
-            });
-        }
+            // Show output with styling
+            showOutput(content, type = 'success') {
+                const output = document.getElementById('keyOutput');
+                output.className = `output ${type}`;
+                output.textContent = content;
+                output.style.display = 'block';
+            },
 
-        const messageObj = await openpgp.createMessage({ text: message });
-        
-        return await openpgp.sign({
-            message: messageObj,
-            signingKeys: privateKeyObj,
-            detached: false,
-            format: 'armored'
-        });
-    }
-
-    static async verifyMessage(signedMessage, publicKeyArmored) {
-        const signedMessageObj = await openpgp.readMessage({ armoredMessage: signedMessage });
-        const publicKeyObj = await openpgp.readKey({ armoredKey: publicKeyArmored });
-
-        const verificationResult = await openpgp.verify({
-            message: signedMessageObj,
-            verificationKeys: publicKeyObj,
-            format: 'utf8'
-        });
-
-        const { data: originalMessage, signatures } = verificationResult;
-        
-        let isValid = false;
-        const verificationDetails = [];
-        
-        for (const signature of signatures) {
-            try {
-                const signatureResult = await signature.verified;
-                verificationDetails.push({
-                    valid: signatureResult === true,
-                    keyID: signature.keyID ? signature.keyID.toHex() : 'Unknown'
-                });
-                
-                if (signatureResult === true) {
-                    isValid = true;
-                }
-            } catch (error) {
-                verificationDetails.push({
-                    valid: false,
-                    keyID: signature.keyID ? signature.keyID.toHex() : 'Unknown',
-                    error: error.message
-                });
-            }
-        }
-
-        return { originalMessage, isValid, verificationDetails };
-    }
-
-    static async encryptMessage(message, publicKeyArmored) {
-        const publicKeyObj = await openpgp.readKey({ armoredKey: publicKeyArmored });
-        const messageObj = await openpgp.createMessage({ text: message });
-
-        return await openpgp.encrypt({
-            message: messageObj,
-            encryptionKeys: publicKeyObj,
-            format: 'armored'
-        });
-    }
-
-    static async decryptMessage(encryptedMessage, privateKeyArmored, passphrase) {
-        let privateKeyObj = await openpgp.readPrivateKey({ armoredKey: privateKeyArmored });
-        
-        if (!privateKeyObj.isDecrypted()) {
-            privateKeyObj = await openpgp.decryptKey({
-                privateKey: privateKeyObj,
-                passphrase
-            });
-        }
-
-        const encryptedMessageObj = await openpgp.readMessage({ armoredMessage: encryptedMessage });
-
-        const { data: decryptedMessage } = await openpgp.decrypt({
-            message: encryptedMessageObj,
-            decryptionKeys: privateKeyObj,
-            format: 'utf8'
-        });
-
-        return decryptedMessage;
-    }
-
-    static sanitizeKey(keyText) {
-        return keyText
-            .trim()
-            .replace(/\r\n/g, '\n')
-            .replace(/[\u200B-\u200D\uFEFF]/g, '');
-    }
-}
-
-// 3. UI OPERATIONS (Separated from business logic)
-class UIManager {
-    static updateStatus(elementId, status, text) {
-        const element = document.getElementById(elementId);
-        if (element) {
-            element.textContent = text;
-            element.className = `status ${status}`;
-        }
-    }
-
-    static showOutput(elementId, content, type = 'success') {
-        const element = document.getElementById(elementId);
-        if (element) {
-            element.style.display = 'block';
-            element.className = `output ${type}`;
-            element.innerHTML = content;
-        }
-    }
-
-    static hideOutput(elementId) {
-        const element = document.getElementById(elementId);
-        if (element) {
-            element.style.display = 'none';
-        }
-    }
-
-    static setButtonState(elementId, disabled, text) {
-        const button = document.getElementById(elementId);
-        if (button) {
-            button.disabled = disabled;
-            if (text) button.textContent = text;
-        }
-    }
-
-    static setLoadingState(elementId, isLoading, loadingText, normalText) {
-        const button = document.getElementById(elementId);
-        if (button) {
-            button.disabled = isLoading;
-            button.innerHTML = isLoading 
-                ? `<span class="loading"></span> ${loadingText}`
-                : normalText;
-        }
-    }
-
-    static toggleSection(sectionId) {
-        const section = document.getElementById(sectionId);
-        if (section) {
-            section.classList.toggle('active');
-        }
-    }
-
-    static addCopyButton(outputElement, textToCopy, buttonText = 'Copy') {
-        // Remove existing copy buttons
-        const existingButtons = outputElement.querySelectorAll('.copy-btn');
-        existingButtons.forEach(btn => btn.remove());
-
-        const copyBtn = document.createElement('button');
-        copyBtn.className = 'btn copy-btn';
-        copyBtn.textContent = buttonText;
-        copyBtn.onclick = () => UIManager.copyToClipboard(textToCopy, copyBtn);
-        outputElement.appendChild(copyBtn);
-    }
-
-    static async copyToClipboard(text, buttonElement) {
-        try {
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                await navigator.clipboard.writeText(text);
-            } else {
-                // Fallback for older browsers
-                const textArea = document.createElement("textarea");
-                textArea.value = text;
-                textArea.style.position = "fixed";
-                textArea.style.top = "0";
-                textArea.style.left = "0";
-                document.body.appendChild(textArea);
-                textArea.focus();
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
-            }
-            
-            const originalText = buttonElement.textContent;
-            buttonElement.textContent = 'âœ… Copied!';
-            setTimeout(() => {
-                buttonElement.textContent = originalText;
-            }, 2000);
-        } catch (err) {
-            console.error('Copy failed:', err);
-        }
-    }
-
-    static getValue(elementId) {
-        const element = document.getElementById(elementId);
-        return element ? element.value.trim() : '';
-    }
-
-    static setValue(elementId, value) {
-        const element = document.getElementById(elementId);
-        if (element) {
-            element.value = value;
-        }
-    }
-
-    static clearValue(elementId) {
-        const element = document.getElementById(elementId);
-        if (element) {
-            element.value = '';
-        }
-    }
-
-    static showError(elementId, message) {
-        this.showOutput(elementId, `âŒ Error: ${message}`, 'error');
-    }
-
-    static showSuccess(elementId, message) {
-        this.showOutput(elementId, `âœ… ${message}`, 'success');
-    }
-}
-
-// 4. FILE OPERATIONS
-class FileManager {
-    static saveKeyPair(keyPair) {
-        const keyData = {
-            publicKey: keyPair.publicKey,
-            privateKey: keyPair.privateKey,
-            timestamp: new Date().toISOString(),
-            version: '1.0'
-        };
-
-        const dataStr = JSON.stringify(keyData, null, 2);
-        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-        
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(dataBlob);
-        link.download = 'pgp-keypair.json';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(link.href);
-    }
-
-    static loadKeyPair(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = function(e) {
+            // Copy text to clipboard
+            async copyToClipboard(text) {
                 try {
-                    const keyData = JSON.parse(e.target.result);
-                    
-                    if (!keyData.publicKey || !keyData.privateKey) {
-                        throw new Error('Invalid key file format');
+                    await navigator.clipboard.writeText(text);
+                    return true;
+                } catch (err) {
+                    console.error('Failed to copy to clipboard:', err);
+                    return false;
+                }
+            }
+        };
+
+        // OpenPGP operations
+        const PGPOperations = {
+            // Generate key pair with advanced options
+            async generateKeyPair(userInfo, config) {
+                try {
+                    // Build user ID
+                    const userId = config.comment 
+                        ? `${userInfo.name} (${config.comment}) <${userInfo.email}>`
+                        : `${userInfo.name} <${userInfo.email}>`;
+
+                    // Prepare key generation options
+                    const keyOptions = {
+                        type: config.algorithm === 'ecc' ? 'ecc' : 'rsa',
+                        userIDs: [{ name: userInfo.name, email: userInfo.email, comment: config.comment }],
+                        passphrase: userInfo.passphrase,
+                        format: 'armored'
+                    };
+
+                    // Set algorithm-specific options
+                    if (config.algorithm === 'ecc') {
+                        keyOptions.curve = 'curve25519';
+                    } else {
+                        keyOptions.rsaBits = config.keySize;
                     }
 
-                    resolve({
-                        publicKey: keyData.publicKey,
-                        privateKey: keyData.privateKey,
-                        timestamp: keyData.timestamp
-                    });
-                } catch (error) {
-                    reject(error);
-                }
-            };
-            reader.onerror = () => reject(new Error('Failed to read file'));
-            reader.readAsText(file);
-        });
-    }
-}
+                    // Set expiration
+                    if (config.expiration > 0) {
+                        keyOptions.keyExpirationTime = config.expiration;
+                    }
 
-// 5. APPLICATION CONTROLLER
-class PGPApp {
-    constructor() {
-        this.state = new AppState();
-        this.isVerifyModeActive = false;
-        this.isDecryptModeActive = false;
-        this.useCustomKey = false;
-        this.init();
-    }
+                    console.log('Generating key with options:', keyOptions);
 
-    async init() {
-        try {
-            await CryptoOps.waitForOpenPGP();
-            this.setupEventListeners();
-            this.setupStateListeners();
-            this.initializeUI();
-            console.log('PGP App initialized successfully');
-        } catch (error) {
-            console.error('Failed to initialize PGP App:', error);
-            alert('Failed to load OpenPGP library');
-        }
-    }
+                    // Generate the key pair
+                    const { privateKey, publicKey } = await openpgp.generateKey(keyOptions);
 
-    initializeUI() {
-        // Set initial states
-        UIManager.updateStatus('keyStatus', 'pending', 'No Keys');
-        UIManager.updateStatus('signStatus', 'pending', 'Keys Required');
-        UIManager.updateStatus('cryptStatus', 'pending', 'Keys Required');
-        
-        // Hide toggle sections initially
-        document.getElementById('verifySection').style.display = 'none';
-        document.getElementById('decryptSection').style.display = 'none';
-        document.getElementById('customKeySection').style.display = 'none';
-    }
+                    // Parse keys for metadata
+                    const privateKeyObj = await openpgp.readPrivateKey({ armoredKey: privateKey });
+                    const publicKeyObj = await openpgp.readKey({ armoredKey: publicKey });
 
-    setupStateListeners() {
-        this.state.on('keysChanged', (data) => {
-            this.updateUIForKeyState(data.isReady);
-        });
-    }
-
-    updateUIForKeyState(isReady) {
-        const status = isReady ? 'ready' : 'pending';
-        const text = isReady ? 'Ready' : 'Keys Required';
-
-        UIManager.updateStatus('keyStatus', isReady ? 'ready' : 'pending', isReady ? 'Ready' : 'No Keys');
-        UIManager.updateStatus('signStatus', status, text);
-        UIManager.updateStatus('cryptStatus', status, text);
-
-        // Enable/disable buttons
-        const buttonsRequiringKeys = ['signBtn', 'verifyBtn', 'encryptBtn', 'decryptBtn', 'saveBtn'];
-        buttonsRequiringKeys.forEach(id => {
-            UIManager.setButtonState(id, !isReady);
-        });
-    }
-
-    setupEventListeners() {
-        // Key Management
-        document.getElementById('generateBtn').addEventListener('click', () => this.generateKeys());
-        document.getElementById('saveBtn').addEventListener('click', () => this.saveKeys());
-        document.getElementById('loadBtn').addEventListener('click', () => this.loadKeys());
-        document.getElementById('keyFile').addEventListener('change', (e) => this.handleFileLoad(e));
-
-        // Sign & Verify
-        document.getElementById('signBtn').addEventListener('click', () => this.signMessage());
-        document.getElementById('verifyBtn').addEventListener('click', () => this.verifyMessage());
-        document.getElementById('verifyToggle').addEventListener('click', () => this.toggleVerifyMode());
-        document.getElementById('useCustomKey').addEventListener('click', () => this.toggleCustomKey());
-
-        // Encrypt & Decrypt
-        document.getElementById('encryptBtn').addEventListener('click', () => this.encryptMessage());
-        document.getElementById('decryptBtn').addEventListener('click', () => this.decryptMessage());
-        document.getElementById('decryptToggle').addEventListener('click', () => this.toggleDecryptMode());
-    }
-
-    async generateKeys() {
-        try {
-            UIManager.setLoadingState('generateBtn', true, 'Generating...', 'Generate Key Pair');
-            UIManager.hideOutput('keyOutput');
-
-            const name = UIManager.getValue('userName');
-            const email = UIManager.getValue('userEmail');
-            const passphrase = UIManager.getValue('passphrase');
-
-            if (!name || !email || !passphrase) {
-                throw new Error('Please fill in all fields');
-            }
-
-            const keyPair = await CryptoOps.generateKeyPair(name, email, passphrase);
-            this.state.setKeyPair(keyPair);
-
-            const outputContent = `âœ… Key pair generated successfully!<br><br>
-                <strong>Public Key:</strong><pre>${keyPair.publicKey}</pre>
-                <strong>Private Key:</strong><pre>${keyPair.privateKey}</pre>`;
-
-            UIManager.showOutput('keyOutput', outputContent, 'success');
-            
-            const outputElement = document.getElementById('keyOutput');
-            UIManager.addCopyButton(outputElement, keyPair.publicKey, 'Copy Public Key');
-
-        } catch (error) {
-            UIManager.showError('keyOutput', error.message);
-        } finally {
-            UIManager.setLoadingState('generateBtn', false, '', 'Generate Key Pair');
-        }
-    }
-
-    saveKeys() {
-        try {
-            const keyPair = this.state.getKeyPair();
-            if (!keyPair) {
-                throw new Error('No keys to save');
-            }
-            FileManager.saveKeyPair(keyPair);
-        } catch (error) {
-            UIManager.showError('keyOutput', error.message);
-        }
-    }
-
-    loadKeys() {
-        document.getElementById('keyFile').click();
-    }
-
-    async handleFileLoad(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        try {
-            const keyData = await FileManager.loadKeyPair(file);
-            this.state.setKeyPair(keyData);
-
-            // Clear passphrase field for security
-            UIManager.clearValue('passphrase');
-            document.getElementById('passphrase').placeholder = 'Enter passphrase for loaded keys';
-
-            const outputContent = `âœ… Key pair loaded successfully!<br><br>
-                <strong>Loaded from:</strong> ${file.name}<br>
-                <strong>Timestamp:</strong> ${keyData.timestamp || 'Unknown'}<br>
-                <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; margin: 10px 0; border-radius: 4px;">
-                    <strong>âš ï¸ Important:</strong> Please enter the correct passphrase for these loaded keys.
-                </div>
-                <strong>Public Key:</strong><pre>${keyData.publicKey}</pre>
-                <strong>Private Key:</strong><pre>${keyData.privateKey}</pre>`;
-
-            UIManager.showOutput('keyOutput', outputContent, 'success');
-            
-            const outputElement = document.getElementById('keyOutput');
-            UIManager.addCopyButton(outputElement, keyData.publicKey, 'Copy Public Key');
-
-        } catch (error) {
-            UIManager.showError('keyOutput', `Key loading failed: ${error.message}`);
-        } finally {
-            // Clear file input
-            event.target.value = '';
-        }
-    }
-
-    async signMessage() {
-        try {
-            UIManager.setLoadingState('signBtn', true, 'Signing...', 'Sign Message');
-            UIManager.hideOutput('signOutput');
-
-            const message = UIManager.getValue('signMessage');
-            const passphrase = UIManager.getValue('passphrase');
-
-            if (!message) throw new Error('Please enter a message to sign');
-            if (!passphrase) throw new Error('Passphrase required');
-
-            const keyPair = this.state.getKeyPair();
-            const signedMessage = await CryptoOps.signMessage(message, keyPair.privateKey, passphrase);
-
-            const outputContent = `âœ… Message signed successfully!<br><br><pre>${signedMessage}</pre>`;
-            UIManager.showOutput('signOutput', outputContent, 'success');
-            
-            const outputElement = document.getElementById('signOutput');
-            UIManager.addCopyButton(outputElement, signedMessage, 'Copy Signed Message');
-
-        } catch (error) {
-            let errorMessage = error.message;
-            if (error.message.includes('Incorrect key passphrase')) {
-                errorMessage += '\n\nðŸ’¡ If you loaded keys from a file, make sure you entered the correct passphrase for those keys.';
-            }
-            UIManager.showError('signOutput', errorMessage);
-        } finally {
-            UIManager.setLoadingState('signBtn', false, '', 'Sign Message');
-        }
-    }
-
-    async verifyMessage() {
-        try {
-            UIManager.setLoadingState('verifyBtn', true, 'Verifying...', 'Verify Message');
-            UIManager.hideOutput('signOutput');
-
-            const signedMessage = UIManager.getValue('verifyMessage');
-            if (!signedMessage) throw new Error('Please enter a signed message');
-
-            let publicKey;
-            if (this.useCustomKey) {
-                publicKey = CryptoOps.sanitizeKey(UIManager.getValue('customPublicKey'));
-                if (!publicKey) throw new Error('Please enter a custom public key');
-            } else {
-                const keyPair = this.state.getKeyPair();
-                publicKey = keyPair.publicKey;
-            }
-
-            const result = await CryptoOps.verifyMessage(signedMessage, publicKey);
-
-          // In your CryptoOps.verifyMessage function, add logging:
-console.log('Signed message being verified:', signedMessage);
-console.log('Public key being used:', publicKeyArmored);
-
-const verificationResult = await openpgp.verify({
-    message: signedMessageObj,
-    verificationKeys: publicKeyObj,
-    format: 'utf8'
-});
-
-console.log('Raw OpenPGP verification result:', verificationResult);
-          
-// LOG THE DETAILS HERE
-        console.log('Verification Result:', result);
-        console.log('isValid:', result.isValid);
-        console.log('verificationDetails:', result.verificationDetails);
-        console.log('originalMessage:', result.originalMessage);          
-          
-            if (result.isValid) {
-                const outputContent = `âœ… Message verification successful!<br><br>
-                    <strong>Signature Status:</strong> Valid<br>
-                    <strong>Verification Details:</strong> ${result.verificationDetails.length} signature(s) checked, ${result.verificationDetails.filter(d => d.valid).length} valid<br>
-                    <strong>Original Message:</strong><pre>${result.originalMessage}</pre>`;
-                UIManager.showOutput('signOutput', outputContent, 'success');
-                
-                const outputElement = document.getElementById('signOutput');
-                UIManager.addCopyButton(outputElement, result.originalMessage, 'Copy Original Message');
-            } else {
-                let errorDetails = '';
-                if (result.verificationDetails.length > 0) {
-                    errorDetails = '<br><br><strong>Verification Details:</strong><br>';
-                    result.verificationDetails.forEach((detail, index) => {
-                        errorDetails += `Signature ${index + 1}: ${detail.valid ? 'Valid' : 'Invalid'} (Key ID: ${detail.keyID})`;
-                        if (detail.error) {
-                            errorDetails += ` - Error: ${detail.error}`;
+                    return {
+                        privateKey,
+                        publicKey,
+                        privateKeyObj,
+                        publicKeyObj,
+                        metadata: {
+                            keyId: publicKeyObj.getKeyIDs()[0].toHex().toUpperCase(),
+                            fingerprint: publicKeyObj.getFingerprint(),
+                            algorithm: config.algorithm.toUpperCase(),
+                            created: publicKeyObj.getCreationTime(),
+                            userIds: publicKeyObj.getUserIDs()
                         }
-                        errorDetails += '<br>';
-                    });
+                    };
+                } catch (error) {
+                    console.error('Key generation failed:', error);
+                    throw new Error(`Key generation failed: ${error.message}`);
                 }
+            },
+
+            // Create downloadable key backup
+            createKeyBackup(keyPair, userInfo, config) {
+                const backup = {
+                    version: '1.0',
+                    created: new Date().toISOString(),
+                    userInfo: {
+                        name: userInfo.name,
+                        email: userInfo.email
+                    },
+                    config: {
+                        algorithm: config.algorithm,
+                        keySize: config.keySize,
+                        comment: config.comment
+                    },
+                    keys: {
+                        private: keyPair.privateKey,
+                        public: keyPair.publicKey
+                    },
+                    metadata: keyPair.metadata
+                };
+
+                return JSON.stringify(backup, null, 2);
+            }
+        };
+
+        // UI Management
+        const UIManager = {
+            // Update key information display
+            updateKeyInfo(metadata) {
+                document.getElementById('keyId').textContent = metadata.keyId;
+                document.getElementById('keyFingerprint').textContent = Utils.formatFingerprint(metadata.fingerprint);
+                document.getElementById('keyAlgorithm').textContent = metadata.algorithm;
+                document.getElementById('keyCreated').textContent = Utils.formatDate(metadata.created);
+                document.getElementById('keyInfo').style.display = 'block';
+            },
+
+            // Show/hide advanced options modal
+            showAdvancedModal() {
+                const modal = document.getElementById('advancedOptionsModal');
+                const currentSettings = document.getElementById('currentSettingsDisplay');
                 
-                const outputContent = `âŒ Message verification failed!<br><br>
-                    <strong>Reason:</strong> The signature is invalid, the message has been tampered with, or you're using the wrong public key.${errorDetails}`;
-                UIManager.showOutput('signOutput', outputContent, 'error');
+                currentSettings.style.display = 'block';
+                AdvancedOptions.updateCurrentSettingsDisplay();
+                AdvancedOptions.loadCurrentSettingsIntoModal();
+                
+                modal.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            },
+
+            hideAdvancedModal() {
+                const modal = document.getElementById('advancedOptionsModal');
+                const checkbox = document.getElementById('enableAdvancedOptions');
+                
+                modal.classList.remove('active');
+                document.body.style.overflow = '';
+                checkbox.checked = false;
+            },
+
+            // Enable/disable key actions
+            enableKeyActions(enabled) {
+                document.getElementById('saveKeyBtn').disabled = !enabled;
+            }
+        };
+
+        // Advanced Options Management
+        const AdvancedOptions = {
+            // Update the current settings display
+            updateCurrentSettingsDisplay() {
+                const config = AppState.advancedConfig;
+                const algorithmSpan = document.getElementById('currentAlgorithm');
+                const expirationSpan = document.getElementById('currentExpiration');
+                const usageSpan = document.getElementById('currentUsage');
+
+                // Update algorithm display
+                switch(config.algorithm) {
+                    case 'ecc':
+                        algorithmSpan.textContent = 'ECC (Curve25519)';
+                        break;
+                    case 'rsa2048':
+                        algorithmSpan.textContent = 'RSA 2048-bit';
+                        break;
+                    case 'rsa4096':
+                        algorithmSpan.textContent = 'RSA 4096-bit';
+                        break;
+                    default:
+                        algorithmSpan.textContent = 'ECC (Curve25519)';
+                }
+
+                // Update expiration display
+                const expiration = parseInt(config.expiration);
+                if (expiration === 0) {
+                    expirationSpan.textContent = 'Never expires';
+                } else {
+                    const years = Math.round(expiration / 31536000);
+                    expirationSpan.textContent = `${years} year${years !== 1 ? 's' : ''}`;
+                }
+
+                // Update usage display
+                const usages = [];
+                if (config.usage.sign) usages.push('Sign');
+                if (config.usage.encrypt) usages.push('Encrypt');
+                if (config.usage.certify) usages.push('Certify');
+                usageSpan.textContent = usages.join(', ') || 'None selected';
+            },
+
+            // Load current settings into modal
+            loadCurrentSettingsIntoModal() {
+                const config = AppState.advancedConfig;
+                
+                document.querySelector(`input[name="algorithm"][value="${config.algorithm}"]`).checked = true;
+                document.getElementById('keyExpiration').value = config.expiration.toString();
+                document.getElementById('usageSign').checked = config.usage.sign;
+                document.getElementById('usageEncrypt').checked = config.usage.encrypt;
+                document.getElementById('usageCertify').checked = config.usage.certify;
+                document.getElementById('keyComment').value = config.comment;
+            },
+
+            // Apply settings from modal
+            applyAdvancedSettings() {
+                const config = AppState.advancedConfig;
+                
+                // Get algorithm
+                const selectedAlgorithm = document.querySelector('input[name="algorithm"]:checked').value;
+                config.algorithm = selectedAlgorithm;
+
+                // Get key size based on algorithm
+                switch(selectedAlgorithm) {
+                    case 'rsa2048':
+                        config.keySize = 2048;
+                        break;
+                    case 'rsa4096':
+                        config.keySize = 4096;
+                        break;
+                    default:
+                        config.keySize = null; // ECC doesn't need key size
+                }
+
+                // Get expiration
+                config.expiration = parseInt(document.getElementById('keyExpiration').value);
+
+                // Get usage
+                config.usage = {
+                    sign: document.getElementById('usageSign').checked,
+                    encrypt: document.getElementById('usageEncrypt').checked,
+                    certify: document.getElementById('usageCertify').checked
+                };
+
+                // Get comment
+                config.comment = document.getElementById('keyComment').value.trim();
+
+                // Validate at least one usage is selected
+                if (!config.usage.sign && !config.usage.encrypt && !config.usage.certify) {
+                    alert('Please select at least one key usage option.');
+                    return false;
+                }
+
+                // Update the display
+                this.updateCurrentSettingsDisplay();
+
+                // Hide the modal
+                UIManager.hideAdvancedModal();
+
+                console.log('Applied advanced settings:', config);
+                return true;
+            }
+        };
+
+        // File Operations
+        const FileOperations = {
+            // Save key pair to file
+            saveKeyPair() {
+                if (!AppState.currentKeyPair) {
+                    alert('No key pair to save. Please generate a key pair first.');
+                    return;
+                }
+
+                try {
+                    const userInfo = Utils.validateRequiredFields();
+                    const backup = PGPOperations.createKeyBackup(
+                        AppState.currentKeyPair, 
+                        userInfo, 
+                        AppState.advancedConfig
+                    );
+
+                    const blob = new Blob([backup], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    
+                    a.href = url;
+                    a.download = `pgp-keys-${userInfo.name.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+
+                    Utils.showOutput('Key pair saved successfully!', 'success');
+                } catch (error) {
+                    console.error('Save failed:', error);
+                    Utils.showOutput(`Save failed: ${error.message}`, 'error');
+                }
+            },
+
+            // Load key pair from file
+            loadKeyPair(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    
+                    reader.onload = async (e) => {
+                        try {
+                            const backup = JSON.parse(e.target.result);
+                            
+                            // Validate backup structure
+                            if (!backup.keys || !backup.keys.private || !backup.keys.public) {
+                                throw new Error('Invalid key file format');
+                            }
+
+                            // Parse keys
+                            const privateKeyObj = await openpgp.readPrivateKey({ armoredKey: backup.keys.private });
+                            const publicKeyObj = await openpgp.readKey({ armoredKey: backup.keys.public });
+
+                            const keyPair = {
+                                privateKey: backup.keys.private,
+                                publicKey: backup.keys.public,
+                                privateKeyObj,
+                                publicKeyObj,
+                                metadata: backup.metadata || {
+                                    keyId: publicKeyObj.getKeyIDs()[0].toHex().toUpperCase(),
+                                    fingerprint: publicKeyObj.getFingerprint(),
+                                    algorithm: 'LOADED',
+                                    created: publicKeyObj.getCreationTime(),
+                                    userIds: publicKeyObj.getUserIDs()
+                                }
+                            };
+
+                            // Update UI with loaded key info
+                            if (backup.userInfo) {
+                                document.getElementById('userName').value = backup.userInfo.name || '';
+                                document.getElementById('userEmail').value = backup.userInfo.email || '';
+                            }
+
+                            resolve(keyPair);
+                        } catch (error) {
+                            reject(new Error(`Failed to load key file: ${error.message}`));
+                        }
+                    };
+
+                    reader.onerror = () => reject(new Error('Failed to read file'));
+                    reader.readAsText(file);
+                });
+            }
+        };
+
+        // Main Application Logic
+        const App = {
+            // Initialize the application
+            init() {
+                this.setupEventListeners();
+                AdvancedOptions.updateCurrentSettingsDisplay();
+                Utils.updateStatus('pending', 'No Keys');
+                console.log('OpenPGP.js Demo initialized');
+            },
+
+            // Setup all event listeners
+            setupEventListeners() {
+                // Generate button
+                document.getElementById('generateBtn').addEventListener('click', this.handleGenerateClick.bind(this));
+
+                // Advanced options
+                document.getElementById('enableAdvancedOptions').addEventListener('change', this.handleAdvancedOptionsToggle.bind(this));
+                document.getElementById('modalClose').addEventListener('click', UIManager.hideAdvancedModal);
+                document.getElementById('modalCancel').addEventListener('click', UIManager.hideAdvancedModal);
+                document.getElementById('modalApply').addEventListener('click', this.handleAdvancedOptionsApply.bind(this));
+
+                // File operations
+                document.getElementById('saveKeyBtn').addEventListener('click', FileOperations.saveKeyPair);
+                document.getElementById('loadKeyBtn').addEventListener('click', () => {
+                    document.getElementById('keyFileInput').click();
+                });
+                document.getElementById('keyFileInput').addEventListener('change', this.handleFileLoad.bind(this));
+
+                // Modal overlay click
+                document.getElementById('advancedOptionsModal').addEventListener('click', (e) => {
+                    if (e.target.id === 'advancedOptionsModal') {
+                        UIManager.hideAdvancedModal();
+                    }
+                });
+
+                // Escape key to close modal
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && document.getElementById('advancedOptionsModal').classList.contains('active')) {
+                        UIManager.hideAdvancedModal();
+                    }
+                });
+            },
+
+            // Handle generate key button click
+            async handleGenerateClick() {
+                if (AppState.isGenerating) return;
+
+                const generateBtn = document.getElementById('generateBtn');
+                
+                try {
+                    AppState.isGenerating = true;
+                    Utils.setButtonLoading(generateBtn, true);
+                    Utils.updateStatus('pending', 'Generating...');
+
+                    // Validate input
+                    const userInfo = Utils.validateRequiredFields();
+
+                    // Generate key pair
+                    console.log('Starting key generation...');
+                    const keyPair = await PGPOperations.generateKeyPair(userInfo, AppState.advancedConfig);
+                    
+                    // Store the key pair
+                    AppState.currentKeyPair = keyPair;
+
+                    // Update UI
+                    Utils.updateStatus('ready', 'Keys Ready');
+                    UIManager.updateKeyInfo(keyPair.metadata);
+                    UIManager.enableKeyActions(true);
+
+                    // Show success message
+                    const message = `Key pair generated successfully!\n\nKey ID: ${keyPair.metadata.keyId}\nFingerprint: ${Utils.formatFingerprint(keyPair.metadata.fingerprint)}`;
+                    Utils.showOutput(message, 'success');
+
+                    console.log('Key generation completed successfully');
+
+                } catch (error) {
+                    console.error('Key generation failed:', error);
+                    
+                    // Show error message with troubleshooting tips
+                    let errorMessage = `Key generation failed: ${error.message}\n\nTroubleshooting tips:\n`;
+                    errorMessage += '• Check that all required fields are filled\n';
+                    errorMessage += '• Ensure your passphrase is at least 8 characters\n';
+                    errorMessage += '• Try refreshing the page if the error persists\n';
+                    errorMessage += '• Check browser console for detailed error information';
+                    
+                    Utils.showOutput(errorMessage, 'error');
+                    Utils.updateStatus('error', 'Generation Failed');
+                } finally {
+                    AppState.isGenerating = false;
+                    Utils.setButtonLoading(generateBtn, false);
+                }
+            },
+
+            // Handle advanced options toggle
+            handleAdvancedOptionsToggle(e) {
+                if (e.target.checked) {
+                    UIManager.showAdvancedModal();
+                } else {
+                    UIManager.hideAdvancedModal();
+                }
+            },
+
+            // Handle advanced options apply
+            handleAdvancedOptionsApply() {
+                if (AdvancedOptions.applyAdvancedSettings()) {
+                    console.log('Advanced settings applied successfully');
+                }
+            },
+
+            // Handle file load
+            async handleFileLoad(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                try {
+                    Utils.updateStatus('pending', 'Loading...');
+                    
+                    const keyPair = await FileOperations.loadKeyPair(file);
+                    AppState.currentKeyPair = keyPair;
+
+                    // Update UI
+                    Utils.updateStatus('ready', 'Keys Loaded');
+                    UIManager.updateKeyInfo(keyPair.metadata);
+                    UIManager.enableKeyActions(true);
+
+                    Utils.showOutput('Key pair loaded successfully!', 'success');
+                    console.log('Key pair loaded from file');
+
+                } catch (error) {
+                    console.error('File load failed:', error);
+                    Utils.showOutput(`Load failed: ${error.message}`, 'error');
+                    Utils.updateStatus('error', 'Load Failed');
+                } finally {
+                    // Clear the file input
+                    e.target.value = '';
+                }
+            }
+        };
+
+        // Initialize the application when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check if OpenPGP.js is loaded
+            if (typeof openpgp === 'undefined') {
+                console.error('OpenPGP.js library not loaded');
+                Utils.showOutput('Error: OpenPGP.js library not loaded. Please refresh the page.', 'error');
+                return;
             }
 
-        } catch (error) {
-            let errorMessage = `Verification failed: ${error.message}`;
-            if (error.message.includes('Error reading')) {
-                errorMessage += '<br><br>ðŸ’¡ Possible issues:<br>â€¢ The signed message format is invalid<br>â€¢ The public key format is invalid<br>â€¢ Copy-paste errors (check for missing characters)';
+            console.log('OpenPGP.js version:', openpgp.version || 'Unknown');
+            App.init();
+        });
+
+        // Global error handling
+        window.addEventListener('error', (e) => {
+            console.error('Global error:', e.error);
+            if (AppState.isGenerating) {
+                AppState.isGenerating = false;
+                Utils.setButtonLoading(document.getElementById('generateBtn'), false);
+                Utils.updateStatus('error', 'Error Occurred');
             }
-            UIManager.showOutput('signOutput', errorMessage, 'error');
-        } finally {
-            UIManager.setLoadingState('verifyBtn', false, '', 'Verify Message');
-        }
-    }
+        });
 
-    async encryptMessage() {
-        try {
-            UIManager.setLoadingState('encryptBtn', true, 'Encrypting...', 'Encrypt Message');
-            UIManager.hideOutput('cryptOutput');
-
-            const message = UIManager.getValue('cryptMessage');
-            if (!message) throw new Error('Please enter a message to encrypt');
-
-            const keyPair = this.state.getKeyPair();
-            const encryptedMessage = await CryptoOps.encryptMessage(message, keyPair.publicKey);
-
-            const outputContent = `âœ… Message encrypted successfully!<br><br><pre>${encryptedMessage}</pre>`;
-            UIManager.showOutput('cryptOutput', outputContent, 'success');
-            
-            const outputElement = document.getElementById('cryptOutput');
-            UIManager.addCopyButton(outputElement, encryptedMessage, 'Copy Encrypted Message');
-
-        } catch (error) {
-            UIManager.showError('cryptOutput', error.message);
-        } finally {
-            UIManager.setLoadingState('encryptBtn', false, '', 'Encrypt Message');
-        }
-    }
-
-    async decryptMessage() {
-        try {
-            UIManager.setLoadingState('decryptBtn', true, 'Decrypting...', 'Decrypt Message');
-            UIManager.hideOutput('cryptOutput');
-
-            const encryptedMessage = UIManager.getValue('decryptMessage');
-            const passphrase = UIManager.getValue('passphrase');
-
-            if (!encryptedMessage) throw new Error('Please enter an encrypted message');
-            if (!passphrase) throw new Error('Passphrase required');
-
-            const keyPair = this.state.getKeyPair();
-            const decryptedMessage = await CryptoOps.decryptMessage(encryptedMessage, keyPair.privateKey, passphrase);
-
-            const outputContent = `âœ… Message decrypted successfully!<br><br>
-                <strong>Decrypted Message:</strong><pre>${decryptedMessage}</pre>`;
-            UIManager.showOutput('cryptOutput', outputContent, 'success');
-            
-            const outputElement = document.getElementById('cryptOutput');
-            UIManager.addCopyButton(outputElement, decryptedMessage, 'Copy Decrypted Message');
-
-        } catch (error) {
-            let errorMessage = `Decryption failed: ${error.message}`;
-            if (error.message.includes('Incorrect key passphrase')) {
-                errorMessage += '\n\nðŸ’¡ If you loaded keys from a file, ensure you entered the correct passphrase for those loaded keys.';
-            }
-            UIManager.showError('cryptOutput', errorMessage);
-        } finally {
-            UIManager.setLoadingState('decryptBtn', false, '', 'Decrypt Message');
-        }
-    }
-
-    toggleVerifyMode() {
-        this.isVerifyModeActive = !this.isVerifyModeActive;
-        const verifySection = document.getElementById('verifySection');
-        const toggleButton = document.getElementById('verifyToggle');
-        
-        if (this.isVerifyModeActive) {
-            verifySection.style.display = 'block';
-            toggleButton.textContent = 'Switch to Sign Mode';
-        } else {
-            verifySection.style.display = 'none';
-            toggleButton.textContent = 'Switch to Verify Mode';
-            // Hide custom key section when switching back
-            if (this.useCustomKey) {
-                this.toggleCustomKey();
-            }
-        }
-    }
-
-    toggleDecryptMode() {
-        this.isDecryptModeActive = !this.isDecryptModeActive;
-        const decryptSection = document.getElementById('decryptSection');
-        const toggleButton = document.getElementById('decryptToggle');
-        
-        if (this.isDecryptModeActive) {
-            decryptSection.style.display = 'block';
-            toggleButton.textContent = 'Switch to Encrypt Mode';
-        } else {
-            decryptSection.style.display = 'none';
-            toggleButton.textContent = 'Switch to Decrypt Mode';
-        }
-    }
-
-    toggleCustomKey() {
-        this.useCustomKey = !this.useCustomKey;
-        const customKeySection = document.getElementById('customKeySection');
-        const toggleButton = document.getElementById('useCustomKey');
-        
-        if (this.useCustomKey) {
-            customKeySection.style.display = 'block';
-            toggleButton.textContent = 'Use Generated Public Key';
-        } else {
-            customKeySection.style.display = 'none';
-            toggleButton.textContent = 'Use Custom Public Key';
-        }
-    }
-}
-
-// Initialize the application when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-    window.pgpApp = new PGPApp();
-});
+        // Expose some functions for debugging
+        window.OpenPGPDemo = {
+            state: AppState,
+            utils: Utils,
+            pgp: PGPOperations
+        };
+  
